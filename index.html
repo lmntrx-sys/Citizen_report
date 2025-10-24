@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Civic Report System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="text-center mb-5">
+            <h1 class="display-4 mb-3">Report Issues in Your Community</h1>
+            <p class="lead">Select a government agency below to anonymously report problems. Your voice matters.</p>
+        </div>
+
+        {% if agencies %}
+            <div class="row">
+                {% for agency in agencies %}
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100 shadow-sm agency-card">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ agency.name }}</h5>
+                            <p class="card-text text-muted">
+                                {{ agency.description or 'Government agency responsible for handling civic issues.' }}
+                            </p>
+                            <a href="{{ url_for('submit_report', agency_id=agency.id) }}" class="btn btn-primary">
+                                Submit Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-info text-center">
+                <h5>No agencies registered yet</h5>
+                <p>Government agencies can <a href="{{ url_for('agency_register') }}">register here</a> to start receiving reports.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-lg-8 mx-auto">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title">How It Works</h5>
+                <ol class="mb-0">
+                    <li>Select the appropriate government agency</li>
+                    <li>Describe the issue you've encountered</li>
+                    <li>Upload a photo (optional but recommended)</li>
+                    <li>Share the location where the issue occurred</li>
+                    <li>Submit anonymously - no account required</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

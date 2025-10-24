@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}Submit Report - {{ agency.name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="mb-4">
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">&larr; Back to Agencies</a>
+        </div>
+
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Submit Report to {{ agency.name }}</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">{{ agency.description or 'Report an issue anonymously.' }}</p>
+
+                <form method="POST" enctype="multipart/form-data" id="reportForm">
+                    <div class="mb-3">
+                        <label for="message" class="form-label">Describe the Issue *</label>
+                        <textarea class="form-control" id="message" name="message" rows="4" required 
+                                  placeholder="Please provide details about the problem you've observed..."></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="image" class="form-label">Upload Photo (Optional)</label>
+                        <input type="file" class="form-control" id="image" name="image" accept="image/*">
+                        <div class="form-text">Supported formats: JPG, PNG, GIF (max 16MB)</div>
+                        <div id="imagePreview" class="mt-2"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Location</label>
+                        <div class="btn-group w-100 mb-2" role="group">
+                            <button type="button" class="btn btn-outline-primary" id="btnUseCurrentLocation">
+                                📍 Use Current Location
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" id="btnSelectOnMap">
+                                🗺️ Select on Map
+                            </button>
+                        </div>
+                        <div id="map" style="height: 300px; display: none;" class="mb-2 rounded"></div>
+                        <div id="locationInfo" class="alert alert-info" style="display: none;">
+                            <strong>Location:</strong> <span id="locationText"></span>
+                        </div>
+                        <input type="hidden" id="latitude" name="latitude">
+                        <input type="hidden" id="longitude" name="longitude">
+                        <input type="hidden" id="location_method" name="location_method" value="manual">
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">Submit Report</button>
+                    </div>
+
+                    <p class="text-muted text-center mt-3 mb-0">
+                        <small>Your report is anonymous. No personal information is collected.</small>
+                    </p>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let map = null;
+let marker = null;
+
+// Image preview
+document.getElementById('image').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    const preview = document.getElementById('imagePreview');
+    
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.innerHTML = `<img src="${e.target.result}" class="img-thumbnail" style="max-height: 200px;">`;
+        };
+        reader.readAsDataURL(file);
+    } else {
+        preview.innerHTML = '';
+    }
+});
+
+// Initialize map
+function initMap() {
+    if (!map) {
+        map = L.map('map').setView([0, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        map.on('click', function(e) {
+            setLocation(e.latlng.lat, e.latlng.lng, 'manual');
+        });
+    }
+}
+
+// Set location
+function setLocation(lat, lng, method) {
+    document.getElementById('latitude').value = lat;
+    document.getElementById('longitude').value = lng;
+    document.getElementById('location_method').value = method;
+    document.getElementById('locationText').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    document.getElementById('locationInfo').style.display = 'block';
+    
+    if (map) {
+        if (marker) {
+            map.removeLayer(marker);
+        }
+        marker = L.marker([lat, lng]).addTo(map);
+        map.setView([lat, lng], 15);
+    }
+}
+
+// Use current location
+document.getElementById('btnUseCurrentLocation').addEventListener('click', function() {
+    if (navigator.geolocation) {
+        this.innerHTML = '⏳ Getting location...';
+        this.disabled = true;
+        
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                setLocation(lat, lng, 'gps');
+                
+                document.getElementById('map').style.display = 'block';
+                initMap();
+                map.invalidateSize();
+                
+                this.innerHTML = '📍 Use Current Location';
+                this.disabled = false;
+            },
+            (error) => {
+                alert('Unable to get your location. Please select on map instead.');
+                this.innerHTML = '📍 Use Current Location';
+                this.disabled = false;
+            }
+        );
+    } else {
+        alert('Geolocation is not supported by your browser.');
+    }
+});
+
+// Select on map
+document.getElementById('btnSelectOnMap').addEventListener('click', function() {
+    document.getElementById('map').style.display = 'block';
+    initMap();
+    map.invalidateSize();
+    
+    if (!marker && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                map.setView([position.coords.latitude, position.coords.longitude], 15);
+            },
+            () => {
+                map.setView([40.7128, -74.0060], 10);
+            }
+        );
+    }
+});
+</script>
+{% endblock %}

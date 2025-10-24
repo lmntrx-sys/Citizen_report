@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - {{ current_user.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h2>{{ current_user.name }} - Reports Dashboard</h2>
+    <p class="text-muted">{{ current_user.description }}</p>
+</div>
+
+<div class="card shadow">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Submitted Reports ({{ reports|length }})</h5>
+    </div>
+    <div class="card-body">
+        {% if reports %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Date</th>
+                            <th>Message</th>
+                            <th>Image</th>
+                            <th>Location</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for report in reports %}
+                        <tr>
+                            <td>{{ report.id }}</td>
+                            <td>{{ report.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                <div class="text-truncate" style="max-width: 300px;">
+                                    {{ report.message }}
+                                </div>
+                            </td>
+                            <td>
+                                {% if report.image_path %}
+                                    <a href="{{ url_for('uploaded_file', filename=report.image_path) }}" target="_blank">
+                                        <img src="{{ url_for('uploaded_file', filename=report.image_path) }}" 
+                                             class="img-thumbnail" style="max-height: 50px;">
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">No image</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if report.latitude and report.longitude %}
+                                    <a href="https://www.openstreetmap.org/?mlat={{ report.latitude }}&mlon={{ report.longitude }}&zoom=15" 
+                                       target="_blank" class="text-decoration-none">
+                                        📍 {{ report.latitude|round(4) }}, {{ report.longitude|round(4) }}
+                                    </a>
+                                    <br><small class="text-muted">({{ report.location_method }})</small>
+                                {% else %}
+                                    <span class="text-muted">No location</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" 
+                                        onclick="viewReport({{ report.id }}, '{{ report.message|replace("'", "\\'") }}', 
+                                                           '{{ report.image_path or '' }}', 
+                                                           {{ report.latitude or 'null' }}, 
+                                                           {{ report.longitude or 'null' }},
+                                                           '{{ report.created_at.strftime('%Y-%m-%d %H:%M') }}')">
+                                    View Details
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-info text-center">
+                <h5>No reports yet</h5>
+                <p class="mb-0">Reports submitted to your agency will appear here.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Report Detail Modal -->
+<div class="modal fade" id="reportModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Report Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <strong>Report ID:</strong> <span id="modalReportId"></span><br>
+                    <strong>Submitted:</strong> <span id="modalDate"></span>
+                </div>
+                <div class="mb-3">
+                    <strong>Message:</strong>
+                    <p id="modalMessage" class="mt-2 p-3 bg-light rounded"></p>
+                </div>
+                <div class="mb-3" id="modalImageContainer" style="display: none;">
+                    <strong>Image:</strong><br>
+                    <img id="modalImage" class="img-fluid mt-2 rounded" style="max-height: 400px;">
+                </div>
+                <div id="modalMapContainer" style="display: none;">
+                    <strong>Location:</strong>
+                    <div id="modalMap" style="height: 300px;" class="mt-2 rounded"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+
+let modalMap = null;
+
+function viewReport(id, message, imagePath, lat, lng, date) {
+    document.getElementById('modalReportId').textContent = id;
+    document.getElementById('modalDate').textContent = date;
+    document.getElementById('modalMessage').textContent = message;
+    
+    // Image
+    const imageContainer = document.getElementById('modalImageContainer');
+    if (imagePath) {
+        document.getElementById('modalImage').src = '/uploads/' + imagePath;
+        imageContainer.style.display = 'block';
+    } else {
+        imageContainer.style.display = 'none';
+    }
+    
+    // Map
+    const mapContainer = document.getElementById('modalMapContainer');
+    if (lat && lng) {
+        mapContainer.style.display = 'block';
+        
+        setTimeout(() => {
+            if (!modalMap) {
+                modalMap = L.map('modalMap').setView([lat, lng], 15);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(modalMap);
+            } else {
+                modalMap.setView([lat, lng], 15);
+            }
+            
+            modalMap.eachLayer((layer) => {
+                if (layer instanceof L.Marker) {
+                    modalMap.removeLayer(layer);
+                }
+            });
+            
+            L.marker([lat, lng]).addTo(modalMap);
+            modalMap.invalidateSize();
+        }, 200);
+    } else {
+        mapContainer.style.display = 'none';
+    }
+    
+    const modal = new bootstrap.Modal(document.getElementById('reportModal'));
+    modal.show();
+}
+</script>
+{% endblock %}
